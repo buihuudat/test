@@ -6,7 +6,7 @@ const admin_account = require('../Data/admin-account.json')
 
 module.exports = {
   signin: (req, res) => {
-    const {username, password} = req.body
+    const {username, password} = req.query
     co(function* () {
       const user = yield User.findOne({username: username})
       
@@ -32,13 +32,19 @@ module.exports = {
 
   // CRUD
   signup: (req, res) => {
-    const { password } = req.body
+    const { username, password } = req.query
     co(function* () {
+      const userExists = yield User.findOne({username: username})
+      if (userExists) {
+        return Promise.reject({
+          message: "User already exists"
+        })
+      }
       req.body.password = CryptoJS.AES.encrypt(
         password,
         process.env.PASSWORD_SECRET_KEY
       )
-      const user = yield User.create(req.body)
+      const user = yield User.create(req.query)
       return user
     })
     .then(data => res.status(201).json(data))
@@ -46,15 +52,22 @@ module.exports = {
   },
 
   update: (req, res) => {
-    const { id } = req.params
-    const { password } = req.body
+    const { username, password, fullName } = req.query
     co(function* () {
       req.body.password = CryptoJS.AES.encrypt(
         password,
         process.env.PASSWORD_SECRET_KEY
         ).toString()
-        console.log(req.body);
-      const user = yield User.findByIdAndUpdate(id, req.body)
+      const isUser = yield User.findOne({username})
+      if (!isUser) {
+        return Promise.reject({
+          message: 'invalid user'
+        })
+      }
+      const user = yield User.findOneAndUpdate({username: username}, {
+        password: password,
+        fullName: fullName,
+      })
       return user
     })
     .then(data => res.status(200).json(data))
@@ -62,23 +75,36 @@ module.exports = {
   },
 
   delete: (req, res) => {
-    const {id} = req.params
+    const {username} = req.query
     co(function* () {
-      yield User.findByIdAndDelete(id)
-      return Promise.resolve("Deleted user")
+      const isUser = yield User.findOne({username})
+      if (!isUser) {
+        return Promise.reject({
+          message: 'invalid user'
+        })
+      }
+      yield User.findOneAndDelete({username})
+      return Promise.resolve({
+        message: "Deleted user"
+      })
     })
     .then(data => res.status(200).json(data))
     .catch(err => res.status(500).json(err))
   },
 
   get: (req, res) => {
-    const { id } = req.params
+    const { username } = req.query
     co(function* () {
-      const user = yield User.findById(id)
+      const user = yield User.findOne({username: username})
+      if (!user) {
+        return Promise.reject({
+          message: "User not found"
+        })
+      }
       return user
     })
     .then(data => res.status(200).json(data))
-    .catch(() => res.status(500).json({message: "Invalid User"}))
+    .catch(err => res.status(500).json(err))
   },
 
   get_all: (req, res) => {
