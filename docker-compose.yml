@@ -1,0 +1,12 @@
+version: "3.7"
+
+services:
+  app:
+    image: node:16.17.0
+    build: .
+    command: sh -c "npm install && npm start"
+    ports:
+      - 5000:5000
+    restart: always
+
+    
